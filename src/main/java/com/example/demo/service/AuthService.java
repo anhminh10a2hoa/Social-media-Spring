@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.RegisterRequest;
+import com.example.demo.exception.MailSenderException;
 import com.example.demo.model.User;
 import com.example.demo.model.VerificationToken;
 import com.example.demo.repository.UserRepository;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -36,9 +38,22 @@ public class AuthService {
         String token = generateVerificationToken(user);
         String message = mailContentBuilder.build("Thank you for signing up to Social media," +
                 " please click on the below url to activate your account : "
-                + "http://8080/api/auth/" + token);
+                + "http://localhost:8843/api/auth/accountVerification/" + token);
 
         mailsService.sendMail(user.getEmail(), message);
+    }
+
+    public void verifyAccount(String token){
+        Optional<VerificationToken> verificationToken = verificationTokenRepository.findByToken(token);
+        verificationToken.orElseThrow(() -> new MailSenderException("Invalid token"));
+        enableUser(verificationToken.get());
+    }
+
+    private void enableUser(VerificationToken verificationToken) {
+        String username = verificationToken.getUser().getUsername();
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new MailSenderException("Username does not exist"));
+        user.setEnabled(true);
+        userRepository.save(user);
     }
 
     public String generateVerificationToken(User user){
